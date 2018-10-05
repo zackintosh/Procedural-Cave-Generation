@@ -237,8 +237,8 @@ MonoBehaviour:
   width: 128
   height: 72
   wallThresholdSize: 7
-  roomThresholdSize: 25
-  seed: 17
+  roomThresholdSize: 16
+  seed: 7.624702
   useRandomSeed: 0
   player2DPrefab: {fileID: 11407356, guid: b662834559fde40dcb0404655bdb7ea7, type: 2}
   player3DPrefab: {fileID: 11445080, guid: efd49d4b54ad1445e8b63c9058538ad3, type: 2}

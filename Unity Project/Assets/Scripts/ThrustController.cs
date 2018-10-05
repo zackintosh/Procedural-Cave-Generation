@@ -42,9 +42,6 @@ public class ThrustController : MonoBehaviour
         }
 
         foreach (var kvp in thrusterActivationMap) {
-            if (kvp.Value) {
-                Debug.LogFormat("Firing {0}", kvp.Key.name);
-            }
             kvp.Key.Throttle = (kvp.Value ? 1.0f : 0.0f);
         }
     }
