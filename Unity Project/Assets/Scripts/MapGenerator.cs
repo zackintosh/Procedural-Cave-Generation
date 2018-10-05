@@ -14,11 +14,16 @@ public class MapGenerator : MonoBehaviour {
 
 	public string seed;
 	public bool useRandomSeed;
+    
+    public Player2D player2DPrefab;
+    public Player player3DPrefab;
 
 	[Range(0,100)]
 	public int randomFillPercent;
 
-	int[,] map;
+	private int[,] map;
+
+    private GameObject spawnedPlayer;
 
     public struct DebugRoomData
     {
@@ -47,17 +52,32 @@ public class MapGenerator : MonoBehaviour {
             Gizmos.DrawSphere(PlayerStartLocation, 1.0f);
 
             foreach (var room in DebugRooms) {
-                Gizmos.color = room.isMainRoom ? Color.green : Color.red;
-                Gizmos.DrawWireCube(room.bounds.center, room.bounds.size);
-
-                Gizmos.color = Color.magenta;
-                Gizmos.DrawSphere(room.bounds.center, 0.5f);
-
                 Gizmos.color = Color.yellow;
                 foreach (var tile in room.tiles) {
                     Gizmos.DrawCube(tile, Vector3.one);
                 }
+
+                Gizmos.color = room.isMainRoom ? Color.green : Color.red;
+                Gizmos.DrawWireCube(room.bounds.center, room.bounds.size);
+
+                Gizmos.color = room.isMainRoom ? Color.magenta : Color.white;
+                Gizmos.DrawSphere(room.bounds.center, 0.5f);
             }
+        }
+    }
+
+    private void SpawnPlayer(bool is2D)
+    {
+        if (spawnedPlayer != null) {
+            Destroy(spawnedPlayer);
+            spawnedPlayer = null;
+        }
+
+        if (is2D) {
+            spawnedPlayer = (GameObject)Instantiate(player2DPrefab.gameObject, PlayerStartLocation, Quaternion.identity);
+        }
+        else {
+            spawnedPlayer = (GameObject)Instantiate(player3DPrefab.gameObject, PlayerStartLocation, Quaternion.identity);
         }
     }
 
@@ -87,6 +107,10 @@ public class MapGenerator : MonoBehaviour {
 
 		MeshGenerator meshGen = GetComponent<MeshGenerator>();
 		meshGen.GenerateMesh(borderedMap, 1);
+
+        if (Application.isPlaying) {
+            SpawnPlayer(meshGen.is2D);
+        }
 	}
 
 	void ProcessMap() {
@@ -135,17 +159,22 @@ public class MapGenerator : MonoBehaviour {
             DebugRooms.Add(debugRoomData);
 
             if (room.isMainRoom) {
-                var boundsCoord = new Bounds();
-                room.tiles.ForEach(t => boundsCoord.Encapsulate(new Vector2(t.tileX, t.tileY)));
+                Coord bestCoord = room.tiles[0];
+                foreach (var tile in room.tiles) {
+                    if (!IsCircleClear(tile, 4)) {
+                        continue;
+                    }
 
-                var center = new Coord(Mathf.RoundToInt(boundsCoord.center.x), Mathf.RoundToInt(boundsCoord.center.y));
+                    bestCoord = tile;
+                    break;
+                }
 
-
-
-                PlayerStartLocation = debugRoomData.bounds.center;
+                PlayerStartLocation = CoordToWorldPoint(bestCoord);
             }
         }
 	}
+
+    
 
 	void ConnectClosestRooms(List<Room> allRooms, bool forceAccessibilityFromMainRoom = false) {
 
@@ -239,6 +268,27 @@ public class MapGenerator : MonoBehaviour {
 				}
 			}
 		}
+	}
+
+    bool IsCircleClear(Coord c, int r)
+    {
+		for (int x = -r; x <= r; x++) {
+			for (int y = -r; y <= r; y++) {
+				if (x*x + y*y <= r*r) {
+					int drawX = c.tileX + x;
+					int drawY = c.tileY + y;
+                    if (!IsInMapRange(drawX, drawY)) {
+                        return false;
+                    }
+
+                    if (map[drawX,drawY] != 0) {
+                        return false;
+                    }
+				}
+			}
+		}
+
+        return true;
 	}
 
 	List<Coord> GetLine(Coord from, Coord to) {
