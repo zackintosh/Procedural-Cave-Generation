@@ -24,4 +24,10 @@ public abstract class Thruster : MonoBehaviour
             ApplyThrottle();
         }
     }
+
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = ShouldApplyThrottle ? Color.green : Color.red;
+        Gizmos.DrawLine(transform.position, transform.position + (-transform.up * power));
+    }
 }
