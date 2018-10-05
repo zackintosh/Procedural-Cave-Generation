@@ -2,11 +2,15 @@
 using System.Collections;
 using System.Collections.Generic;
 using System;
+using System.Linq;
 
 public class MapGenerator : MonoBehaviour {
 
 	public int width;
 	public int height;
+
+    public int wallThresholdSize = 50;
+    public int roomThresholdSize = 50;
 
 	public string seed;
 	public bool useRandomSeed;
@@ -15,6 +19,16 @@ public class MapGenerator : MonoBehaviour {
 	public int randomFillPercent;
 
 	int[,] map;
+
+    public struct DebugRoomData
+    {
+        public Bounds bounds;
+        public List<Vector3> tiles;
+        public bool isMainRoom;
+    }
+
+    public Vector3 PlayerStartLocation { get; private set; }
+    public List<DebugRoomData> DebugRooms { get; private set; }
 
 	void Start() {
 		GenerateMap();
@@ -25,6 +39,27 @@ public class MapGenerator : MonoBehaviour {
 			GenerateMap();
 		}
 	}
+
+    private void OnDrawGizmos()
+    {
+        if (Application.isPlaying) {
+            Gizmos.color = Color.red;
+            Gizmos.DrawSphere(PlayerStartLocation, 1.0f);
+
+            foreach (var room in DebugRooms) {
+                Gizmos.color = room.isMainRoom ? Color.green : Color.red;
+                Gizmos.DrawWireCube(room.bounds.center, room.bounds.size);
+
+                Gizmos.color = Color.magenta;
+                Gizmos.DrawSphere(room.bounds.center, 0.5f);
+
+                Gizmos.color = Color.yellow;
+                foreach (var tile in room.tiles) {
+                    Gizmos.DrawCube(tile, Vector3.one);
+                }
+            }
+        }
+    }
 
 	void GenerateMap() {
 		map = new int[width,height];
@@ -56,8 +91,6 @@ public class MapGenerator : MonoBehaviour {
 
 	void ProcessMap() {
 		List<List<Coord>> wallRegions = GetRegions (1);
-		int wallThresholdSize = 50;
-
 		foreach (List<Coord> wallRegion in wallRegions) {
 			if (wallRegion.Count < wallThresholdSize) {
 				foreach (Coord tile in wallRegion) {
@@ -67,7 +100,6 @@ public class MapGenerator : MonoBehaviour {
 		}
 
 		List<List<Coord>> roomRegions = GetRegions (0);
-		int roomThresholdSize = 50;
 		List<Room> survivingRooms = new List<Room> ();
 		
 		foreach (List<Coord> roomRegion in roomRegions) {
@@ -82,9 +114,37 @@ public class MapGenerator : MonoBehaviour {
 		}
 		survivingRooms.Sort ();
 		survivingRooms [0].isMainRoom = true;
-		survivingRooms [0].isAccessibleFromMainRoom = true;
+        survivingRooms[0].isAccessibleFromMainRoom = true;
 
 		ConnectClosestRooms (survivingRooms);
+
+        Debug.LogFormat("ROOMS: {0}", survivingRooms.Count);
+
+        DebugRooms = new List<DebugRoomData>();
+        foreach (var room in survivingRooms) {
+            var debugRoomData = new DebugRoomData
+            {
+                isMainRoom = room.isMainRoom
+            };
+
+            room.tiles.ForEach(t => debugRoomData.bounds.Encapsulate(CoordToWorldPoint(t)));
+            room.edgeTiles.ForEach(t => debugRoomData.bounds.Encapsulate(CoordToWorldPoint(t)));
+            debugRoomData.tiles = room.tiles.ConvertAll(t => CoordToWorldPoint(t));
+            debugRoomData.tiles.AddRange(room.edgeTiles.ConvertAll(t => CoordToWorldPoint(t)));
+
+            DebugRooms.Add(debugRoomData);
+
+            if (room.isMainRoom) {
+                var boundsCoord = new Bounds();
+                room.tiles.ForEach(t => boundsCoord.Encapsulate(new Vector2(t.tileX, t.tileY)));
+
+                var center = new Coord(Mathf.RoundToInt(boundsCoord.center.x), Mathf.RoundToInt(boundsCoord.center.y));
+
+
+
+                PlayerStartLocation = debugRoomData.bounds.center;
+            }
+        }
 	}
 
 	void ConnectClosestRooms(List<Room> allRooms, bool forceAccessibilityFromMainRoom = false) {
@@ -233,7 +293,7 @@ public class MapGenerator : MonoBehaviour {
 	}
 
 	Vector3 CoordToWorldPoint(Coord tile) {
-		return new Vector3 (-width / 2 + .5f + tile.tileX, 2, -height / 2 + .5f + tile.tileY);
+		return new Vector3 (-width / 2 + .5f + tile.tileX, -height / 2 + .5f + tile.tileY, 0);
 	}
 
 	List<List<Coord>> GetRegions(int tileType) {
