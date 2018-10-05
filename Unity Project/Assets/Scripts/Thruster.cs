@@ -14,7 +14,7 @@ public abstract class Thruster : MonoBehaviour
         set { throttle = Mathf.Clamp01(value); }
     }
 
-    protected bool ShouldApplyThrottle { get { return power >= 0.0f && Throttle >= 0.0f; } }
+    protected bool ShouldApplyThrottle { get { return !Mathf.Approximately(power * Throttle, 0.0f); } }
 
     public abstract void ApplyThrottle();
 
